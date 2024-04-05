@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Memory Visualization</title>
+  <style>
+     /* CSS styles will go here */
+  </style>
+</head>
+<body>
+  <h1>Main</h1>
+  <div id="tooltip" style="display: none; position: absolute; background-color: white; border: 1px solid black; padding: 5px;"></div>
+  <canvas id="memoryCanvas" width="1024" height="" style=""></canvas>
+  <script>
+     // JavaScript code will go here
+     const canvas = document.getElementById("memoryCanvas");
+     const ctx = canvas.getContext("2d");
+
+     const colorPalette = [
+        "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+        "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+        "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000"
+    ];
+
+    // Function to get a color for a segment
+    function getColor(index) {
+        return colorPalette[index % colorPalette.length];
+    }
+    const inputData = `
+              header: 00000000, 00000020, 00000020
+       load commands: 00000020, 00000820, 00000840
+              __TEXT: 00000840, 00594000, 00594840
+        __DATA_CONST: 00594840, 00004000, 00598840
+              __DATA: 00598840, 00158000, 006f0840
+          __LINKEDIT: 006f0840, 001024a0, 007f2ce0
+              rebase: 006f0840, 00012b78, 007033b8
+                bind: 007033b8, 000000a0, 00703458
+              symtab: 007d7f50, 00000c90, 007d8be0
+              strtab: 007d9200, 00000860, 007d9a60
+         indirectsym: 007d8be0, 00000620, 007d9200
+             codesig: 007d9a60, 00019280, 007f2ce0
+    `;
+    const processedData = [];
+    const lines = inputData.trim().replaceAll(": ", ", ").split("\n");
+    lines.forEach((line, index) => {
+        const [name, startHex, sizeHex, endHex] = line.split(", ").map(item => item.trim());
+        const start = parseInt(startHex, 16)/8;
+        const size = parseInt(sizeHex, 16)/8;
+        const end = parseInt(endHex, 16)/8;
+        processedData.push({name, start, size, end, color: getColor(index)});
+    });
+    let totalHeight = processedData.reduce((acc, segment) => acc > segment.end ? acc : segment.end, 0);
+    console.log(totalHeight)
+    canvas.height = totalHeight / canvas.width;
+
+    processedData.forEach((segment, index) => {
+        console.log(segment)
+        ctx.fillStyle = segment.color;
+        ctx.lineWidth = 0;
+        const x = segment.start % canvas.width;
+        const y = Math.ceil(segment.start / canvas.width);
+        const x2 = segment.end % canvas.width;
+        const y2 = Math.floor(segment.end / canvas.width);
+        console.log(x, y, x2, y2)
+        if(x > 0) ctx.fillRect(x, y-1, y < y2 ? canvas.width : x2, 1);
+        if(y < y2) ctx.fillRect(0, y, canvas.width, y2-y);
+        if(x2 > 0) ctx.fillRect(y < y2 ? 0 : x, y2, x2, 1);
+    });
+    canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.floor(event.clientX - rect.left); // Mouse position relative to canvas
+        const y = Math.floor(event.clientY - rect.top);
+
+        const loc = y * canvas.width + x;
+        // Find the segment under the mouse
+        const segment = processedData.filter(segment => {
+            return loc >= segment.start && loc <= segment.end;
+        }).sort((a, b) => a.size - b.size);
+
+        if (segment) {
+            tooltip.style.display = 'block';
+            tooltip.style.left = (x + 15) + 'px';
+            tooltip.style.top = (y + 15) + 'px';
+            tooltip.textContent = segment.map(s => s.name).join(", ");
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+  </script>
+</body>
+</html>
